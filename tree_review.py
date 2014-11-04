@@ -1,9 +1,10 @@
 #!/usr/bin/python
 import Queue
+from math import floor, log
 
 # binary tree
 class BinaryTree:
-	def __init__(self, data):
+	def __init__(self, data=None):
 		self.data = data
 		self.left = None
 		self.right = None
@@ -30,15 +31,17 @@ class BST(BinaryTree):
 		if data < self.data:
 			if self.left == None:
 				self.left = BST(data)
-				return self.left
+				return self
 			else:
-				return self.left.insert(data)
+				self.left.insert(data)
+				return self
 		if data > self.data:
 			if self.right == None:
 				self.right = BST(data)
-				return self.right
+				return self
 			else:
-				return self.right.insert(data)
+				self.right.insert(data)
+				return self
 	def insertTree(self, root):
 		if self.data == None:
 			self = root
@@ -65,17 +68,21 @@ class BST(BinaryTree):
 				while n.left != None:
 					p = n
 					n = n.left
-				if n.right != None:
-					p.left = n.right
-				else:
-					p.left = None
+				if p != self:
+					if n.right != None:
+							p.left = n.right
+					else:
+						p.left = None
+					n.right = self.right
 				n.left = self.left
-				n.right = self.right
 				return n
 			elif self.left != None:
 				return self.left
 			elif self.right != None:
 				return self.right
+			else:
+				self.data = None
+				return self
 		elif key < self.data:
 			if self.left != None:
 				self.left = self.left.remove(key)
@@ -84,20 +91,195 @@ class BST(BinaryTree):
 				self.right = self.right.remove(key)
 		return self
 
+# AVL tree
+class AVL(BinaryTree):
+	def __init__(self, data=None):
+		BinaryTree.__init__(self, data)
+	def rotate(self):
+		hd = [heightDiff(self)]
+		if abs(hd[0]) <= 1:
+			return self
+		elif hd[0] > 1:
+			child = self.left
+		elif hd[0] < -1:
+			child = self.right
+		hd.append(heightDiff(child))
+		# LL
+		if hd[0] > 1 and hd[1] > 0:
+			self.left = child.right
+			child.right = self
+			return child
+		# LR
+		elif hd[0] > 1 and hd[1] < 0:
+			grandchild = child.right
+			child.right = grandchild.left
+			self.left = grandchild.right
+			grandchild.left = child
+			grandchild.right = self
+			return grandchild
+		# RL
+		elif hd[0] < -1 and hd[1] > 0:
+			grandchild = child.left
+			child.left = grandchild.right
+			self.right = grandchild.left
+			grandchild.left = self
+			grandchild.right = child
+			return grandchild
+		# RR
+		elif hd[0] < -1 and hd[1] < 0:
+			self.right = child.left
+			child.left = self
+			return child
+		return self
+	def balance(self):
+		if height(self) < 3:
+			return self
+		if self.left != None:
+			self.left = self.left.balance()
+		if self.right != None:
+			self.right = self.right.balance()
+		self = self.rotate()
+		return self
+	def insert(self, data):
+		if data == None:
+			return self
+		p = None
+		n = self
+		while n != None:
+			if data == n.data:
+				raise Exception("Value already exists within tree")
+			elif data < n.data:
+				p = n
+				n = n.left
+			elif data > n.data:
+				p = n
+				n = n.right
+		n = AVL(data)
+		if data < p.data:
+			p.left = n
+		elif data > p.data:
+			p.right = n
+		self = self.balance()
+		return self
+	def insertTree(self, root):
+		while root != None and root.data != None:
+			data = root.data
+			self = self.insert(data)
+			root = root.remove(data)
+		return self
+	def remove(self, key):
+		if self.data == None:
+			return self
+		if key == self.data:
+			if self.left != None and self.right != None:
+				if heightDiff(self) < 0:
+					p = self
+					n = p.right
+					while n.left != None:
+						p = n
+						n = n.left
+					if p != self:
+						if n.right != None:
+							p.left = n.right
+						else:
+							p.left = None
+						n.right = self.right
+					n.left = self.left
+					n = n.balance()
+					return n
+				else:
+					p = self
+					n = p.left
+					while n.right != None:
+						p = n
+						n = n.right
+					if p != self:
+						if n.left != None:
+							p.right = n.left
+						else:
+							p.right = None
+						n.left = self.left
+					n.right = self.right
+					n = n.balance()
+					return n
+			elif self.left != None:
+				return self.left
+			elif self.right != None:
+				return self.right
+			else:
+				self.data = None
+				return self				
+		elif key < self.data:
+			if self.left != None:
+				self.left = self.left.remove(key)
+		elif key > self.data:
+			if self.right != None:
+				self.right = self.right.remove(key)
+		self = self.balance()
+		return self
+
 # height
 def height(root):
 	if root == None:
 		return 0
 	return (1+max(height(root.left), height(root.right)))
 
+# height difference
+def heightDiff(root):
+	return height(root.left) - height(root.right)
 
-# AVL
+# node count
+def nodeCount(root):
+	q = Queue.Queue()
+	count = 0
+	if root == None or root.data == None:
+		return count
+	q.put(root)
+	while (not q.empty()):
+		n = q.get(root)
+		count = count + 1
+		if n.left != None:
+			q.put(n.left)
+		if n.right != None:
+			q.put(n.right)
+	return count
+
+# verify height balanced
+def isHeightBalanced(root):
+	if root == None or root.data == None:
+		return True
+	h = height(root)
+	c = nodeCount(root)
+	return h <= floor(log(c, 2) + 1)
+
+# verify AVL
 def isAVL(root):
 	if root == None or root.data == None:
 		return True
 	if isAVL(root.left) and isAVL(root.right):
-		return (abs(height(root.left)-height(root.right)) <= 1)
+		return abs(heightDiff(root)) <= 1
 	return False
+
+# test function
+def printTree(root):
+	q = Queue.Queue()
+	h = Queue.Queue()
+	q.put(root)
+	h.put(0)
+	currentHeight = 0
+	while (not q.empty()):
+		n = q.get()
+		if h.get() > currentHeight:
+			currentHeight = currentHeight + 1
+			print ""
+		print n.data, # test
+		if (n.left != None):
+			q.put(n.left)
+			h.put(currentHeight+1)
+		if (n.right != None):
+			q.put(n.right)
+			h.put(currentHeight+1)
+	print ""
 
 # breadth first search
 def BFS(root, key):
@@ -185,10 +367,33 @@ bstroot.insert(5)
 bstroot.insert(11)
 bstroot.insert(0)
 bstroot = bstroot.remove(1)
-n = BFS(bstroot, 13)
-print "BST Found:", n.data
-
-print "isAVL1: ", isAVL(bstroot)
 bstroot.insert(-1)
 bstroot.insert(-2)
-print "isAVL2: ", isAVL(bstroot)
+
+avlroot = AVL(100)
+avlroot = avlroot.insert(200)
+avlroot = avlroot.insert(300)
+avlroot = avlroot.insert(400)
+avlroot = avlroot.insert(500)
+avlroot = avlroot.insert(600)
+avlroot = avlroot.insert(700)
+avlroot = avlroot.insert(800)
+avlroot = avlroot.insert(900)
+avlroot = avlroot.insertTree(bstroot)
+
+printTree(avlroot)
+print "isAVL:", isAVL(avlroot)
+print "height:", height(avlroot)
+print "heightDiff:", heightDiff(avlroot)
+
+while(avlroot != None and avlroot.data != None):
+	data = avlroot.data
+	avlroot = avlroot.remove(data)
+	print "==Line Break=="
+#	print "height:", height(avlroot)
+#	print "heightDiff:", heightDiff(avlroot)
+#	print "count:", nodeCount(avlroot)
+#	print "isHeightBalanced:", isHeightBalanced(avlroot)
+#	print "isAVL:", isAVL(avlroot)
+	printTree(avlroot)
+print "Done"
